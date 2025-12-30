@@ -24,6 +24,29 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 )
 
+// Add response interceptor to handle 401/403 errors globally
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            // Token expired or invalid - clear auth and redirect to login
+            const currentPath = window.location.pathname
+            if (currentPath.includes('/management')) {
+                localStorage.removeItem('management_token')
+                localStorage.removeItem('management_user')
+                localStorage.removeItem('management_sessionId')
+                window.location.href = '/management/login'
+            } else {
+                localStorage.removeItem('student_token')
+                localStorage.removeItem('student_user')
+                localStorage.removeItem('student_sessionId')
+                window.location.href = '/student/login'
+            }
+        }
+        return Promise.reject(error)
+    }
+)
+
 export const authAPI = {
     login: async (usernameOrEmail, password) => {
         const response = await api.post('/auth/login', {

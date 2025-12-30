@@ -26,7 +26,7 @@ call :KILL_PORT 8080
 call :KILL_PORT 8082
 call :KILL_PORT 8083
 call :KILL_PORT 8000
-call :KILL_PORT 8001
+call :KILL_PORT 8010
 call :KILL_PORT 8002
 call :KILL_PORT 9443
 call :KILL_PORT 9444
@@ -50,7 +50,7 @@ echo [5/9] Starting OCR Service (Port 8000)...
 call :START_OCR
 
 echo.
-echo [6/9] Starting AI Chat Agent (Port 8001)...
+echo [6/9] Starting AI Chat Agent (Port 8010)...
 echo       Note: Agent1 requires MongoDB to be running.
 call :START_AGENT
 
@@ -78,7 +78,7 @@ echo   1. Restart Main Backend (8080)
 echo   2. Restart Meeting Service (8082)
 echo   3. Restart Chat Service (8083)
 echo   4. Restart OCR Service (8000)
-echo   5. Restart AI Chat Agent (8001)
+echo   5. Restart AI Chat Agent (8010)
 echo   6. Restart Library Service (8002)
 echo   7. Restart Mobile Scanner HTTPS (9443)
 echo   8. Restart VBoard HTTPS (9444)
@@ -130,8 +130,8 @@ call :START_OCR
 goto MENU
 
 :RESTART_AGENT
-echo Stopping Port 8001...
-call :KILL_PORT 8001
+echo Stopping Port 8010...
+call :KILL_PORT 8010
 echo Starting AI Chat Agent...
 call :START_AGENT
 goto MENU
@@ -192,7 +192,7 @@ start "OCR Service (backend-ocr)" cmd /k "cd backend-ocr && python main.py --hos
 exit /b
 
 :START_AGENT
-start "AI Chat Agent (Agent1)" cmd /k "cd Agent1 && uvicorn api.app:app --host 0.0.0.0 --port 8001 --reload"
+start "AI Chat Agent (Agent1)" cmd /k "cd Agent1 && uvicorn api.app:app --host 0.0.0.0 --port 8010 --reload"
 exit /b
 
 :START_LIB

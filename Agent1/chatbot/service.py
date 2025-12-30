@@ -83,11 +83,18 @@ class ChatbotService:
         Main chatbot entry point.
         """
 
-        # ---- RAG retrieval ----
-        chunks: List[str] = self.vector_store.similarity_search(
-            message,
-            k=5,
-        )
+        # ---- RAG retrieval (with graceful fallback) ----
+        chunks: List[str] = []
+        try:
+            chunks = self.vector_store.similarity_search(
+                message,
+                k=5,
+            )
+        except Exception as e:
+            # ChromaDB error - continue without RAG
+            import logging
+            logging.warning(f"Vector store error (continuing without RAG): {str(e)}")
+            chunks = []
 
         context = "\n\n".join(chunks) if chunks else "No relevant context."
 

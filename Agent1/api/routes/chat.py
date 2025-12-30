@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from typing import Dict, Optional, List
 from datetime import datetime, timezone
@@ -7,7 +7,6 @@ from memory.interface import MemoryPort
 from chatbot.service import ChatbotService
 from agent.service import AgentService
 from orchestration.mode_switch import build_graph
-from api.dependencies import extract_user_context, UserContext
 
 
 router = APIRouter()
@@ -57,53 +56,60 @@ class ChatResponse(BaseModel):
 
 @router.post("/", response_model=ChatResponse)
 def chat_endpoint(
-    payload: ChatRequest,
-    user: UserContext = Depends(extract_user_context)
+    payload: ChatRequest
 ):
+    """
+    Chat endpoint - authentication handled by frontend/backend-ai.
+    Agent1 trusts the user_context provided in the request.
+    """
     if not all([memory, chatbot_service, agent_service, graph]):
         raise RuntimeError("Dependencies not initialized")
 
+    # Extract user info from request payload (frontend sends authenticated user data)
+    user_context = payload.user_context or {}
+    user_id = user_context.get("email") or user_context.get("user_id") or "anonymous"
+    user_email = user_context.get("email", user_id)
+    user_role = user_context.get("role", "STUDENT")
+    user_name = user_context.get("name") or user_context.get("full_name", "User")
+
     # ---- Sync user profile in MongoDB ----
-    user_profile = memory.get_user_profile(user.user_id)
+    user_profile = memory.get_user_profile(user_id)
     if not user_profile:
         # Create user profile on first interaction
-        memory.update_user_profile(user.user_id, {
-            "user_id": user.user_id,
-            "email": user.email,
-            "role": user.role,
-            "full_name": user.full_name,
+        memory.update_user_profile(user_id, {
+            "user_id": user_id,
+            "email": user_email,
+            "role": user_role,
+            "full_name": user_name,
             "created_at": datetime.now(timezone.utc).isoformat()
         })
 
-    # ---- Build user context from JWT + request ----
-    # Use role from user_context if provided (frontend sends it), otherwise use JWT role
-    user_context = payload.user_context or {}
-    effective_role = user_context.get("role") or user.role
-    
-    user_context.update({
-        "user_id": user.user_id,
-        "email": user.email,
-        "role": effective_role,  # Prefer role from frontend user_context
-        "full_name": user.full_name
-    })
+    # ---- Build complete user context ----
+    complete_user_context = {
+        "user_id": user_id,
+        "email": user_email,
+        "role": user_role,
+        "full_name": user_name
+    }
+    complete_user_context.update(user_context)  # Merge with frontend data
 
     # ---- Store incoming user message ----
     memory.store_message(
-        user_id=user.user_id,
+        user_id=user_id,
         role="user",
         content=payload.message,
         metadata={
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "role": user.role
+            "role": user_role
         },
     )
 
     # ---- Orchestrated execution ----
     result = graph.invoke(
         {
-            "user_id": user.user_id,
+            "user_id": user_id,
             "message": payload.message,
-            "user_context": user_context,
+            "user_context": complete_user_context,
             "intent": None,
             "response": None,
             "task_created": None,

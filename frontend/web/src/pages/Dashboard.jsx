@@ -19,7 +19,8 @@ import {
     Search,
     Mic,
     MoreHorizontal,
-    LogOut
+    LogOut,
+    Loader2
 } from 'lucide-react';
 import AIChatWidget from '../components/AIChatWidget';
 import { logout } from '../utils/authStorage';
@@ -29,6 +30,7 @@ const StudentDashboard = () => {
     const [user, setUser] = useState({ name: 'Guest', studentId: 'N/A', collegeRollNumber: null, avatar: 'G', email: '', username: '' });
     const [activeTab, setActiveTab] = useState('all');
     const [showNotifications, setShowNotifications] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     // State for dashboard data (Initialized to empty - no dummy data)
     const [quickStats, setQuickStats] = useState(null);
@@ -66,13 +68,24 @@ const StudentDashboard = () => {
     };
 
     const handleLogout = async () => {
+        // Confirmation dialog
+        if (!window.confirm('Are you sure you want to logout?')) {
+            return;
+        }
+
+        setIsLoggingOut(true);
         try {
             await logout('student');
-            navigate('/student/login');
+            // Clear all storage to ensure clean logout
+            localStorage.clear();
+            navigate('/student/login', { replace: true });
         } catch (error) {
             console.error('Logout error:', error);
-            // Still navigate to login even if API call fails
-            navigate('/student/login');
+            // Still navigate to login and clear storage even if API call fails
+            localStorage.clear();
+            navigate('/student/login', { replace: true });
+        } finally {
+            setIsLoggingOut(false);
         }
     };
 
@@ -113,10 +126,20 @@ const StudentDashboard = () => {
                         </div>
                         <button
                             onClick={handleLogout}
-                            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors"
+                            disabled={isLoggingOut}
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-white border-2 border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 hover:border-red-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                         >
-                            <LogOut size={16} />
-                            Logout
+                            {isLoggingOut ? (
+                                <>
+                                    <Loader2 size={16} className="animate-spin" />
+                                    Logging out...
+                                </>
+                            ) : (
+                                <>
+                                    <LogOut size={16} />
+                                    Logout
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>

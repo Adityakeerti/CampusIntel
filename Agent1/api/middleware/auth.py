@@ -45,7 +45,7 @@ def decode_jwt_token(token: str) -> Dict[str, Any]:
     try:
         # First, decode the token header to see what algorithm it uses (without verification)
         unverified_header = jwt.get_unverified_header(token)
-        token_algorithm = unverified_header.get("alg", "unknown")
+        token_algorithm = unverified_header.get("alg", "HS384")  # Default to HS384 if not specified
         logger.info(f"Token algorithm: {token_algorithm}")
         
         # Decode the BASE64 secret to bytes (matching backend-ai's Decoders.BASE64.decode)
@@ -59,15 +59,11 @@ def decode_jwt_token(token: str) -> Dict[str, Any]:
             logger.warning(f"BASE64 decode failed, trying direct: {str(e)}")
             secret_bytes = settings.jwt_secret.encode('utf-8') if isinstance(settings.jwt_secret, str) else settings.jwt_secret
         
-        # Decode token using the secret bytes
-        # backend-ai uses HS384 algorithm (jjwt 0.12.3 defaults to HS384 for keys >= 48 bytes)
-        # Also support HS256 for backward compatibility
-        # IMPORTANT: PyJWT requires the algorithms list to include the algorithm from the token
-        # Build algorithms list - always include the detected algorithm first
-        allowed_algorithms = []
-        if token_algorithm:
-            allowed_algorithms.append(token_algorithm)
-        # Add other supported algorithms
+        # Build algorithms list - MUST include the detected algorithm first
+        # PyJWT requires the algorithms parameter to include the algorithm from the token header
+        allowed_algorithms = [token_algorithm]  # Start with detected algorithm
+        
+        # Add other supported HMAC-SHA algorithms if not already included
         for alg in ["HS384", "HS256", "HS512"]:
             if alg not in allowed_algorithms:
                 allowed_algorithms.append(alg)

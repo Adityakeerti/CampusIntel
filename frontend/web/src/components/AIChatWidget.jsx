@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bot, X, Send, Sparkles, Loader2, ChevronDown } from 'lucide-react';
 import { getCurrentToken, getCurrentUser } from '../utils/authStorage';
 
-// Dynamic API URL based on hostname
-const AI_API_BASE = `http://${window.location.hostname}:8001`;
+// Use proxy-based API URL (configured in vite.config.js)
+// This avoids CORS issues and hardcoded ports
+const AI_API_BASE = '/agent-api';
 
 const AIChatWidget = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -13,6 +14,7 @@ const AIChatWidget = () => {
     ]);
     const [inputMessage, setInputMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [connectionStatus, setConnectionStatus] = useState('connected'); // 'connected', 'disconnected', 'error'
     const [currentUserInfo, setCurrentUserInfo] = useState(null);
     const [currentToken, setCurrentToken] = useState(null);
     const messagesEndRef = useRef(null);
@@ -50,11 +52,11 @@ const AIChatWidget = () => {
         // Try management token first
         const mgmtToken = localStorage.getItem('management_token');
         if (mgmtToken) return mgmtToken;
-        
+
         // Try student token
         const studentToken = localStorage.getItem('student_token');
         if (studentToken) return studentToken;
-        
+
         // Fallback to legacy 'token' key
         return localStorage.getItem('token');
     };
@@ -62,35 +64,35 @@ const AIChatWidget = () => {
     // Update user info and token when component mounts or when storage changes
     useEffect(() => {
         let previousEmail = null;
-        
+
         const updateUserInfo = () => {
             const userInfo = getUserInfo();
             const token = getToken();
-            
+
             // Clear messages if user changed (different email)
             if (previousEmail && previousEmail !== userInfo.email) {
                 setMessages([
                     { role: 'chatbot', content: 'Hi! I\'m your Campus AI Assistant. Ask me anything about academics, library, schedules, or campus services!' }
                 ]);
             }
-            
+
             previousEmail = userInfo.email;
             setCurrentUserInfo(userInfo);
             setCurrentToken(token);
         };
-        
+
         updateUserInfo();
-        
+
         // Listen for storage changes (when user logs in/out)
         const handleStorageChange = () => {
             updateUserInfo();
         };
-        
+
         window.addEventListener('storage', handleStorageChange);
-        
+
         // Also check periodically (in case of same-window logout/login)
         const interval = setInterval(updateUserInfo, 2000);
-        
+
         return () => {
             window.removeEventListener('storage', handleStorageChange);
             clearInterval(interval);
@@ -117,35 +119,24 @@ const AIChatWidget = () => {
             // Always get fresh user info and token (don't use cached state)
             const userInfo = getUserInfo();
             const token = getToken();
-            
+
             // Debug logging
-            console.log('AI Chat - User Info:', { 
-                userId: userInfo.userId, 
-                role: userInfo.role, 
+            console.log('AI Chat - User Info:', {
+                userId: userInfo.userId,
+                role: userInfo.role,
                 email: userInfo.email,
                 hasToken: !!token,
                 tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
             });
-            
+
             // Update state
             setCurrentUserInfo(userInfo);
             setCurrentToken(token);
-            
-            // Build headers with JWT token if available
+
+            // Build headers WITHOUT Authorization
+            // Agent1 now trusts the user_context we send in the body
             const headers = { 'Content-Type': 'application/json' };
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            } else {
-                console.warn('No token found for AI chat request');
-                setMessages(prev => [...prev, {
-                    role: 'chatbot',
-                    content: 'Authentication required. Please log in again.',
-                    isError: true
-                }]);
-                setIsLoading(false);
-                return;
-            }
-            
+
             const response = await fetch(`${AI_API_BASE}/chat/`, {
                 method: 'POST',
                 headers: headers,
@@ -162,6 +153,7 @@ const AIChatWidget = () => {
 
             if (response.ok) {
                 const data = await response.json();
+                setConnectionStatus('connected');
                 setMessages(prev => [...prev, {
                     role: 'chatbot',
                     content: data.message,
@@ -170,12 +162,15 @@ const AIChatWidget = () => {
             } else {
                 const errorData = await response.json().catch(() => ({ detail: response.statusText }));
                 console.error('AI Chat error:', response.status, errorData);
-                
-                let errorMessage = 'Sorry, I encountered an error. Please try again.';
+                setConnectionStatus('error');
+
+                let errorMessage = '❌ Sorry, I encountered an error. Please try again.';
                 if (response.status === 401) {
-                    errorMessage = errorData.detail || 'Authentication required. Please log in again.';
+                    errorMessage = '🔒 ' + (errorData.detail || 'Your session has expired. Please log in again.');
                 } else if (response.status === 403) {
-                    errorMessage = 'You do not have permission to use this feature.';
+                    errorMessage = '⛔ You do not have permission to use this feature.';
+                } else if (response.status === 500) {
+                    errorMessage = '⚠️ Server error. The AI service may be temporarily unavailable.';
                 }
                 setMessages(prev => [...prev, {
                     role: 'chatbot',
@@ -185,9 +180,10 @@ const AIChatWidget = () => {
             }
         } catch (error) {
             console.error('AI Chat error:', error);
+            setConnectionStatus('disconnected');
             setMessages(prev => [...prev, {
                 role: 'chatbot',
-                content: 'Unable to connect to AI service. Please check if the service is running.',
+                content: '🔌 Unable to connect to AI service. Please ensure:\n• Agent1 backend is running on port 8001\n• You have a stable internet connection\n• Try refreshing the page',
                 isError: true
             }]);
         } finally {
@@ -242,7 +238,13 @@ const AIChatWidget = () => {
                                 <Sparkles className="text-white" size={20} />
                             </div>
                             <div>
-                                <h3 className="text-white font-semibold">Campus AI</h3>
+                                <h3 className="text-white font-semibold flex items-center gap-2">
+                                    Campus AI
+                                    <span className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-green-400' :
+                                        connectionStatus === 'disconnected' ? 'bg-red-400' :
+                                            'bg-yellow-400'
+                                        }`} title={connectionStatus}></span>
+                                </h3>
                                 <p className="text-white/70 text-xs">Powered by Gemini</p>
                             </div>
                         </div>
@@ -273,10 +275,10 @@ const AIChatWidget = () => {
                             >
                                 <div
                                     className={`max-w-[80%] p-3 rounded-2xl ${msg.role === 'user'
-                                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-br-sm'
-                                            : msg.isError
-                                                ? 'bg-red-50 text-red-700 border border-red-200 rounded-bl-sm'
-                                                : 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-sm'
+                                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-br-sm'
+                                        : msg.isError
+                                            ? 'bg-red-50 text-red-700 border border-red-200 rounded-bl-sm'
+                                            : 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-sm'
                                         }`}
                                 >
                                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
