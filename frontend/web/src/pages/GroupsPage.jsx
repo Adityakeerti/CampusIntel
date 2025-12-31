@@ -13,7 +13,7 @@ import {
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 import { useNavigate } from 'react-router-dom';
-import { getDashboardUrl } from '../utils/authStorage';
+import { getDashboardUrl, getCurrentUser } from '../utils/authStorage';
 
 // Use dynamic hostname for network access
 const CHAT_API_BASE = `http://${window.location.hostname}:8083`;
@@ -21,8 +21,8 @@ const WS_URL = `http://${window.location.hostname}:8083/ws`;
 
 const GroupsPage = () => {
     const navigate = useNavigate();
-    // User State
-    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')) || {});
+    // User State - using getCurrentUser() from authStorage
+    const [user, setUser] = useState(getCurrentUser() || {});
 
     // UI State
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -48,20 +48,43 @@ const GroupsPage = () => {
     // --- 1. Fetch User's Groups & Default Master Group ---
     useEffect(() => {
         const userId = user.userId || user.id;
+        console.log('[Groups] Current user:', user);
+        console.log('[Groups] User ID:', userId);
+
         const fetchGroups = async () => {
             try {
                 // Fetch joined groups from API (Assuming endpoint exists or just listing all public ones for now)
                 // For this demo, we can just fetch ALL rooms or User's rooms.
                 // Let's assume we want to show Master Group + User Groups.
 
-                const res = await fetch(`${CHAT_API_BASE}/api/groups/user/${userId}`);
+                const url = `${CHAT_API_BASE}/api/groups/user/${userId}`;
+                console.log('[Groups] Fetching from:', url);
+
+                const res = await fetch(url);
+                console.log('[Groups] Response status:', res.status, res.ok);
+
                 let myGroups = [];
-                if (res.ok) myGroups = await res.json();
+                if (res.ok) {
+                    myGroups = await res.json();
+                    console.log('[Groups] Fetched groups:', myGroups);
+                } else {
+                    console.error('[Groups] Failed with status:', res.status);
+                    const errorText = await res.text();
+                    console.error('[Groups] Error response:', errorText);
+                }
 
                 setGroups(myGroups);
-            } catch (e) { console.error(e); }
+                console.log('[Groups] Groups state updated:', myGroups);
+            } catch (e) {
+                console.error('[Groups] Fetch error:', e);
+            }
         };
-        if (userId) fetchGroups();
+        if (userId) {
+            console.log('[Groups] Fetching groups for userId:', userId);
+            fetchGroups();
+        } else {
+            console.warn('[Groups] No userId found, skipping groups fetch');
+        }
 
         // Fetch all users for group creation
         const fetchUsers = async () => {

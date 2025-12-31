@@ -16,7 +16,7 @@ import {
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 import { useNavigate } from 'react-router-dom';
-import { getDashboardUrl } from '../utils/authStorage';
+import { getDashboardUrl, getCurrentUser } from '../utils/authStorage';
 
 // Use dynamic hostname for network access
 const CHAT_API_BASE = `http://${window.location.hostname}:8083`;
@@ -25,9 +25,9 @@ const WS_URL = `http://${window.location.hostname}:8083/ws`;
 // ... (Imports assumed stable)
 
 const MessagesPage = () => {
-    // User State
+    // User State - using getCurrentUser() from authStorage
     const navigate = useNavigate();
-    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')) || {});
+    const [user, setUser] = useState(getCurrentUser() || {});
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     // UI selections
@@ -54,22 +54,46 @@ const MessagesPage = () => {
     useEffect(() => {
         if (!user.userId && !user.id) return;
         const userId = user.userId || user.id;
+        console.log('[Messages] User ID:', userId);
 
         const fetchData = async () => {
             try {
                 // Fetch Friends
+                console.log('[Messages] Fetching friends from:', `${CHAT_API_BASE}/api/friends/${userId}`);
                 const fRes = await fetch(`${CHAT_API_BASE}/api/friends/${userId}`);
-                if (fRes.ok) setFriends(await fRes.json());
+                if (fRes.ok) {
+                    const friendsData = await fRes.json();
+                    console.log('[Messages] Fetched friends:', friendsData);
+                    setFriends(friendsData);
+                } else {
+                    console.error('[Messages] Friends fetch failed with status:', fRes.status);
+                }
 
                 // Fetch Incoming Requests
+                console.log('[Messages] Fetching requests from:', `${CHAT_API_BASE}/api/friends/requests/${userId}`);
                 const rRes = await fetch(`${CHAT_API_BASE}/api/friends/requests/${userId}`);
-                if (rRes.ok) setPendingRequests(await rRes.json());
+                if (rRes.ok) {
+                    const requestsData = await rRes.json();
+                    console.log('[Messages] Fetched pending requests:', requestsData);
+                    setPendingRequests(requestsData);
+                } else {
+                    console.error('[Messages] Requests fetch failed with status:', rRes.status);
+                }
 
                 // Fetch Sent Requests [NEW]
+                console.log('[Messages] Fetching sent requests from:', `${CHAT_API_BASE}/api/friends/sent/${userId}`);
                 const sRes = await fetch(`${CHAT_API_BASE}/api/friends/sent/${userId}`);
-                if (sRes.ok) setSentRequests(await sRes.json());
+                if (sRes.ok) {
+                    const sentData = await sRes.json();
+                    console.log('[Messages] Fetched sent requests:', sentData);
+                    setSentRequests(sentData);
+                } else {
+                    console.error('[Messages] Sent requests fetch failed with status:', sRes.status);
+                }
 
-            } catch (error) { console.error(error); }
+            } catch (error) {
+                console.error('[Messages] Fetch error:', error);
+            }
         };
 
         fetchData();

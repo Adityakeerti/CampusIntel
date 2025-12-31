@@ -91,16 +91,21 @@ public class GroupService {
     }
     
     public List<ChatRoom> getUserGroups(Long userId) {
-        // Fetch groups from GroupMember table
+        // Fetch groups from GroupMember table where user is explicitly a member
         List<ChatRoom> joinedGroups = groupMemberRepository.findByUserId(userId).stream()
                 .map(com.college.chat.model.GroupMember::getChatRoom)
+                .filter(room -> room.isActive()) // Only active groups
                 .collect(java.util.stream.Collectors.toList());
                 
-        // Ensure Master Group is always included (failsafe)
-        boolean hasMaster = joinedGroups.stream().anyMatch(g -> "Default College".equals(g.getName()));
-        if (!hasMaster) {
-             chatRoomRepository.findByName("Default College").ifPresent(joinedGroups::add);
-        }
+        // ALWAYS include Master Group for all users (campus-wide group)
+        chatRoomRepository.findByName("Default College").ifPresent(masterGroup -> {
+            // Only add if not already in the list
+            boolean alreadyHas = joinedGroups.stream()
+                    .anyMatch(g -> g.getId().equals(masterGroup.getId()));
+            if (!alreadyHas) {
+                joinedGroups.add(0, masterGroup); // Add at the beginning
+            }
+        });
         
         return joinedGroups;
     }
