@@ -69,13 +69,13 @@ Scope
 ```mermaid
 graph TD
     Client[Client apps]
-    RP[Reverse Proxy (optional)]
-    AI[backend-ai (Java Spring Boot)]
-    OCR[backend-ocr (Python FastAPI)]
-    AG[Agent1 (Python FastAPI)]
-    LIB[backend-lib (Python FastAPI)]
-    CHAT[backend-chat (Java)]
-    MEET[backend-meeting (Java)]
+    RP["Reverse Proxy (optional)"]
+    AI["backend-ai (Java Spring Boot)"]
+    OCR["backend-ocr (Python FastAPI)"]
+    AG["Agent1 (Python FastAPI)"]
+    LIB["backend-lib (Python FastAPI)"]
+    CHAT["backend-chat (Java)"]
+    MEET["backend-meeting (Java)"]
     SQL[(MySQL - connect_college)]
     MONGO[(MongoDB - Agent memory & vectors)]
 
@@ -91,6 +91,8 @@ graph TD
     OCR --> SQL
     LIB --> SQL
     AG --> MONGO
+```
+
 ---
 
 ## `backend-ocr` — OCR pipeline (file: `backend-ocr/main.py`)
@@ -319,27 +321,27 @@ If you'd like, I can expand each link to exact method line ranges inside the Jav
 
 ```mermaid
 sequenceDiagram
-  participant F as Frontend
-  participant O as backend-ocr
-  participant FS as FileSystem (uploads/)
-  participant P as pipeline / scripts
-  participant DB as MySQL
+    participant F as Frontend
+    participant O as backend-ocr
+    participant FS as FileSystem
+    participant P as pipeline
+    participant DB as MySQL
 
-  F->>O: POST /process (multipart file, mode, expected_sem?)
-  O->>FS: write temp upload (timestamped)
-  alt file is PDF
-    O->>O: convert first page to image (PyMuPDF) -> temp image
-    O->>FS: remove temp PDF
-  end
-  O->>FS: create display copy `<stem>_display.ext`
-  alt mode == 'college'
-    O->>P: call scripts.college_extractor.process_fixed_format(temp_image)
-  else
-    O->>P: call MarksheetProcessor.process_single_marksheet(temp_image)
-  end
-  P-->>O: extraction JSON (structured) or error
-  O-->>F: return { server_filename, board, data }
-  Note over O: temp image removed in finally; display copy persisted in `uploads/`
+    F->>O: POST process file
+    O->>FS: write temp upload
+    alt file is PDF
+        O->>O: convert PDF to image
+        O->>FS: remove temp PDF
+    end
+    O->>FS: create display copy
+    alt mode is college
+        O->>P: process fixed format
+    else
+        O->>P: process single marksheet
+    end
+    P-->>O: extraction JSON
+    O-->>F: return data
+    Note over O: Temp image removed and display copy saved in uploads
 ```
 
 ### `POST /submit_marksheets` (backend-ocr)
@@ -437,4 +439,3 @@ sequenceDiagram
   LIB->>DB: UPDATE books SET available_copies = available_copies + 1
   LIB-->>UI: { success, fine_amount }
 ```
-
