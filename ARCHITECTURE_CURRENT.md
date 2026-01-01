@@ -1,4 +1,4 @@
-# ARCHITECTURE_CURRENT.md
+# ARCHITECTURE_CURRENT
 
 Purpose
 - This file documents only the currently implemented architecture and code in this repository. It lists every service, every route implemented in the codebase, the exact request/response shapes and side-effects, and the internal data flow for each feature. It does NOT include future or proposed changes.
