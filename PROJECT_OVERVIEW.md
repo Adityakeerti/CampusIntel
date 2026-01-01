@@ -14,19 +14,20 @@ This repository is a multi-service prototype for campus automation and assistant
 ## 2. Directory Structure (implemented services)
 This is the current layout and which component lives where in the repository:
 
-```
-HackTheWinter-Dump/
-├── Agent1/                 # Python FastAPI AI Agent (API in Agent1/api/app.py)
-│   ├── api/                # FastAPI routers and app factory
-│   └── memory/             # MongoDB-related memory/vector helpers
-├── backend-ai/             # Java (Spring Boot) Main backend project (run with mvnw)
-├── backend-chat/           # Java (Spring Boot) Chat/WS service (mvnw)
-├── backend-meeting/        # Java (Spring Boot) Meeting scheduler (mvnw)
-├── backend-ocr/            # Python FastAPI OCR service (backend-ocr/main.py)
-├── backend-lib/            # Python FastAPI Library service (backend-lib/main.py)
-├── database/               # SQL schemas and migration scripts (connect_college.sql)
-├── start_servers.bat       # Local orchestration (invokes mvnw/uvicorn/python)
-└── frontend/               # (separate web client, not modified here)
+```mermaid
+mindmap
+  root((HackTheWinter-Dump))
+    Agent1
+      api
+      memory
+    backend-ai
+    backend-chat
+    backend-meeting
+    backend-ocr
+    backend-lib
+    database
+    start_servers_bat
+    frontend
 ```
 
 Notes:
@@ -50,20 +51,20 @@ graph TD
         Mobile[Library Scanner App]
     end
 
-    subgraph GatewayLayer [API / Reverse Proxy]
-        LB[Reverse Proxy / Load Balancer (optional)]
+    subgraph GatewayLayer ["API / Reverse Proxy"]
+        LB["Reverse Proxy / Load Balancer (optional)"]
     end
 
     subgraph Services
-        Core[backend-ai (Java, Spring Boot)]
-        OCR[backend-ocr (Python, FastAPI)]
-        Agent[Agent1 (Python, FastAPI)]
-        Lib[backend-lib (Python, FastAPI)]
+        Core["backend-ai (Java, Spring Boot)"]
+        OCR["backend-ocr (Python, FastAPI)"]
+        Agent["Agent1 (Python, FastAPI)"]
+        Lib["backend-lib (Python, FastAPI)"]
     end
 
     subgraph Data
-        MySQL[(MySQL - connect_college)]
-        Mongo[(MongoDB - Agent vectors & chat_history)]
+        MySQL[("MySQL - connect_college")]
+        Mongo[("MongoDB - Agent vectors & chat_history")]
     end
 
     Student --> LB
@@ -123,4 +124,3 @@ start_servers.bat
 
 ## 5. Roadmap & Notes
 - The repo includes a "Roadmap" section describing production hardening (Kubernetes, caching, secrets management, on-prem LLMs). Those items are proposals for later phases and are not implemented in this codebase unless explicitly found in the source. This documentation avoids claiming production features that are not present.
-
